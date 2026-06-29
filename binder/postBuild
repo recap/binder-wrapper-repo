@@ -7,6 +7,6 @@ ls -la "${REPO_DIR:-/home/jovyan/src}"
 
 pip install -e "${REPO_DIR:-/home/jovyan/src}"
 
-python -c "import binder_launcher; print(binder_launcher.__file__)"
+# python -c "import binder_launcher; print(binder_launcher.__file__)"
 jupyter server extension enable --py binder_launcher --sys-prefix
 jupyter server extension list
