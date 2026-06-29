@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 set -eux
 jupyter server extension enable --py binder_launcher --sys-prefix
+jupyter server extension list

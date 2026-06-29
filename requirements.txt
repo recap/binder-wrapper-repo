@@ -1,3 +1,5 @@
+-e .
 nbgitpuller
 python-dotenv
 jupyter-server
+jupyterlab

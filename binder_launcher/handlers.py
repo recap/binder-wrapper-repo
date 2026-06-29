@@ -33,40 +33,155 @@ def safe_remove_work_contents():
             item.unlink()
 
 
-def write_env(params: dict[str, str]):
+# def write_env(params: dict[str, str]):
+#     lines = []
+#     for key, value in sorted(params.items()):
+#         env_key = "BINDER_PARAM_" + key.upper().replace("-", "_")
+#         if not env_key.replace("_", "").isalnum():
+#             continue
+#         lines.append(f"{env_key}={shell_escape_env_value(value)}")
+#     ENV_FILE.write_text("\n".join(lines) + "\n")
+
+def write_env(params: dict[str, str], log):
+    log.info("Writing environment file: %s", ENV_FILE)
+    log.info("Received %d parameters", len(params))
+
     lines = []
+
     for key, value in sorted(params.items()):
         env_key = "BINDER_PARAM_" + key.upper().replace("-", "_")
+
         if not env_key.replace("_", "").isalnum():
+            log.warning(
+                "Skipping invalid parameter '%s' -> '%s'",
+                key,
+                env_key,
+            )
             continue
-        lines.append(f"{env_key}={shell_escape_env_value(value)}")
-    ENV_FILE.write_text("\n".join(lines) + "\n")
 
+        escaped = shell_escape_env_value(value)
 
-def git_clone(repo: str, branch: str | None):
+        log.info(
+            "Adding %s=%s",
+            env_key,
+            escaped,
+        )
+
+        lines.append(f"{env_key}={escaped}")
+
+    contents = "\n".join(lines) + "\n"
+
+    log.debug("Writing .env contents:\n%s", contents)
+
+    ENV_FILE.write_text(contents)
+
+    log.info(
+        "Successfully wrote %s (%d bytes)",
+        ENV_FILE,
+        ENV_FILE.stat().st_size,
+    )
+
+# def git_clone(repo: str, branch: str | None):
+#     if TARGET.exists():
+#         shutil.rmtree(TARGET)
+#
+#     cmd = ["git", "clone", "--depth", "1"]
+#     if branch:
+#         cmd += ["--branch", branch]
+#     cmd += [repo, str(TARGET)]
+#
+#     subprocess.run(cmd, check=True, text=True, capture_output=True)
+
+def git_clone(repo: str, branch: str | None, log):
+    import shutil as _shutil
+
+    git = _shutil.which("git")
+    log.info("PATH=%s", os.environ.get("PATH"))
+    log.info("git executable=%s", git)
+
+    if git is None:
+        raise RuntimeError("git executable not found")
+
     if TARGET.exists():
         shutil.rmtree(TARGET)
 
-    cmd = ["git", "clone", "--depth", "1"]
+    cmd = [git, "clone", "--depth", "1"]
     if branch:
         cmd += ["--branch", branch]
     cmd += [repo, str(TARGET)]
 
-    subprocess.run(cmd, check=True, text=True, capture_output=True)
+    log.info("running clone command: %s", " ".join(shlex.quote(c) for c in cmd))
+
+    result = subprocess.run(cmd, text=True, capture_output=True)
+
+    log.info("git returncode=%s", result.returncode)
+    log.info("git stdout=%s", result.stdout)
+    log.info("git stderr=%s", result.stderr)
+
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            cmd,
+            output=result.stdout,
+            stderr=result.stderr,
+        )
+
+    log.info("clone target exists=%s contents=%s", TARGET.exists(), list(TARGET.iterdir()))
 
 
-def copy_target_into_work():
-    for item in TARGET.iterdir():
+# def copy_target_into_work():
+#     for item in TARGET.iterdir():
+#         if item.name == ".git":
+#             continue
+#         dest = WORK / item.name
+#         if dest.exists():
+#             if dest.is_dir():
+#                 shutil.rmtree(dest)
+#             else:
+#                 dest.unlink()
+#         shutil.move(str(item), str(dest))
+#     shutil.rmtree(TARGET)
+
+def copy_target_into_work(log):
+    log.info("Copying target repository into work directory")
+    log.info("TARGET=%s", TARGET)
+    log.info("WORK=%s", WORK)
+
+    if not TARGET.exists():
+        raise RuntimeError(f"Target directory does not exist: {TARGET}")
+
+    items = list(TARGET.iterdir())
+    log.info("Target contains %d items", len(items))
+
+    for item in items:
+        log.info("Processing %s", item)
+
         if item.name == ".git":
+            log.info("Skipping .git directory")
             continue
+
         dest = WORK / item.name
+
         if dest.exists():
+            log.info("Destination already exists: %s", dest)
+
             if dest.is_dir():
+                log.info("Removing existing directory")
                 shutil.rmtree(dest)
             else:
+                log.info("Removing existing file")
                 dest.unlink()
+
+        log.info("Moving %s -> %s", item, dest)
         shutil.move(str(item), str(dest))
+
+    log.info("Removing temporary clone directory %s", TARGET)
     shutil.rmtree(TARGET)
+
+    log.info("Final work directory contents:")
+
+    for path in sorted(WORK.iterdir()):
+        log.info("  %s", path.name)
 
 
 class LaunchHandler(JupyterHandler):
@@ -84,13 +199,15 @@ class LaunchHandler(JupyterHandler):
             # Tornado returns bytes; use last value for simplicity.
             params[key] = values[-1].decode("utf-8")
 
+        self.serverapp.log.info(f"Launching with repo={repo}, branch={branch}, urlpath={urlpath}, overwrite={overwrite}, params={params}")
+
         try:
             if overwrite:
                 safe_remove_work_contents()
 
-            write_env(params)
-            git_clone(repo, branch)
-            copy_target_into_work()
+            write_env(params, self.serverapp.log)
+            git_clone(repo, branch, self.serverapp.log)
+            copy_target_into_work(self.serverapp.log)
 
         except subprocess.CalledProcessError as exc:
             self.set_status(500)
