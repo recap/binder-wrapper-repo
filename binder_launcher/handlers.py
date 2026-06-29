@@ -9,8 +9,7 @@ import tornado.web
 from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.utils import url_path_join
 
-# WORKSPACE_DIR_NAME = "workspace"
-WORKSPACE_DIR_NAME = ""
+WORKSPACE_DIR_NAME = "workspace"
 HOME = Path.home()
 WORK = HOME / WORKSPACE_DIR_NAME
 TARGET = WORK / "target"
