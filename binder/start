@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export JUPYTER_SERVER_ROOT="$HOME/work"
+
+exec "$@"
