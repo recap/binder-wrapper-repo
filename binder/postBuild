@@ -12,16 +12,38 @@
 # jupyter server extension list
 
 
+# #!/usr/bin/env bash
+# set -eux
+#
+# pwd
+# ls -la
+# ls -la "${REPO_DIR:-/home/jovyan/src}"
+#
+# "${KERNEL_PYTHON_PREFIX}/bin/python" -m pip install -e "${REPO_DIR:-/home/jovyan/src}"
+#
+# "${KERNEL_PYTHON_PREFIX}/bin/python" -c "import binder_launcher; print(binder_launcher.__file__)"
+#
+# "${KERNEL_PYTHON_PREFIX}/bin/jupyter" server extension enable --py binder_launcher --sys-prefix
+# "${KERNEL_PYTHON_PREFIX}/bin/jupyter" server extension list
+
+
 #!/usr/bin/env bash
 set -eux
-
-pwd
-ls -la
-ls -la "${REPO_DIR:-/home/jovyan/src}"
 
 "${KERNEL_PYTHON_PREFIX}/bin/python" -m pip install -e "${REPO_DIR:-/home/jovyan/src}"
 
 "${KERNEL_PYTHON_PREFIX}/bin/python" -c "import binder_launcher; print(binder_launcher.__file__)"
 
-"${KERNEL_PYTHON_PREFIX}/bin/jupyter" server extension enable --py binder_launcher --sys-prefix
+mkdir -p "${KERNEL_PYTHON_PREFIX}/etc/jupyter/jupyter_server_config.d"
+
+cat > "${KERNEL_PYTHON_PREFIX}/etc/jupyter/jupyter_server_config.d/binder_launcher.json" <<'EOF'
+{
+  "ServerApp": {
+    "jpserver_extensions": {
+      "binder_launcher": true
+    }
+  }
+}
+EOF
+
 "${KERNEL_PYTHON_PREFIX}/bin/jupyter" server extension list
