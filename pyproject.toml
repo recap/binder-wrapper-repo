@@ -1,0 +1,19 @@
+# pyproject.toml
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "binder-wrapper-repo"
+version = "0.1.0"
+dependencies = [
+    "jupyter_server",
+    "jupyterlab",
+    "tornado",
+    "python-dotenv",
+    "nbgitpuller",
+]
+
+[tool.setuptools]
+packages = ["binder_launcher"]
