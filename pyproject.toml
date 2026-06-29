@@ -15,5 +15,7 @@ dependencies = [
     "nbgitpuller",
 ]
 
-[tool.setuptools]
-packages = ["binder_launcher"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["binder_launcher*"]
