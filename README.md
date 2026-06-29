@@ -7,7 +7,7 @@ Minimal Binder wrapper that accepts launch parameters, writes them to `/home/jov
 Use Binder's `urlpath` to call the wrapper extension:
 
 ```text
-https://mybinder.org/v2/gh/YOUR_ORG/WRAPPER_REPO/main?urlpath=binder-launch%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FORG%252FTARGET_REPO%26branch%3Dmain%26urlpath%3Dlab%252Ftree%252Fnotebook.ipynb%26csv_url%3Dhttps%253A%252F%252Fexample.org%252Fdata.csv%26dataset_pid%3Ddoi%253A10.1234%252Fabcd
+https://mybinder.org/v2/gh/recap/binder-wrapper-repo/main?urlpath=binder-launch%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FORG%252FTARGET_REPO%26branch%3Dmain%26urlpath%3Dlab%252Ftree%252Fnotebook.ipynb%26csv_url%3Dhttps%253A%252F%252Fexample.org%252Fdata.csv%26dataset_pid%3Ddoi%253A10.1234%252Fabcd
 ```
 
 Decoded inner route:
