@@ -3,7 +3,7 @@ import shlex
 import shutil
 import subprocess
 from pathlib import Path
-from urllib.parse import quote
+
 
 import tornado.web
 from jupyter_server.base.handlers import JupyterHandler
@@ -15,7 +15,7 @@ TARGET = WORK / "target"
 ENV_FILE = WORK / ".env"
 KEEP = {".env", ".ipynb_checkpoints"}
 
-RESERVED_PARAMS = {"repo", "branch", "urlpath", "subpath", "targetpath", "overwrite"}
+RESERVED_PARAMS = {"repo", "branch", "urlpath", "notebookpath", "targetpath", "overwrite"}
 
 
 def shell_escape_env_value(value: str) -> str:
@@ -107,6 +107,61 @@ def git_clone(repo: str, branch: str | None, log):
 
     log.info("clone target exists=%s contents=%s", TARGET.exists(), list(TARGET.iterdir()))
 
+def install_requirements(log):
+    pip = shutil.which("pip")
+    if pip is None:
+        raise RuntimeError("pip executable not found")
+
+    candidates = [
+        TARGET / "binder" / "requirements.txt",
+        TARGET / ".binder" / "requirements.txt",
+        TARGET / "requirements.txt",
+        TARGET / "binder" / "environment.yml",
+        TARGET / ".binder" / "environment.yml",
+        TARGET / "environment.yml",
+        TARGET / "pyproject.toml",
+    ]
+
+    for path in candidates:
+        if not path.exists():
+            continue
+
+        log.info("Found dependency file: %s", path)
+
+        if path.name == "requirements.txt":
+            cmd = [pip, "install", "-r", str(path)]
+
+        elif path.name == "pyproject.toml":
+            cmd = [pip, "install", str(TARGET)]
+
+        elif path.name == "environment.yml":
+            # Don't try to recreate the conda environment at runtime.
+            log.warning(
+                "Found environment.yml but runtime conda environment "
+                "creation is not supported. Skipping."
+            )
+            return
+
+        log.info("Running: %s", " ".join(cmd))
+
+        result = subprocess.run(
+            cmd,
+            text=True,
+            capture_output=True,
+        )
+
+        log.info(result.stdout)
+        log.info(result.stderr)
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Dependency installation failed:\n{result.stderr}"
+            )
+
+        return
+
+    log.info("No supported dependency files found.")
+
 def copy_target_into_work(log):
     log.info("Copying target repository into work directory")
     log.info("TARGET=%s", TARGET)
@@ -154,7 +209,8 @@ class LaunchHandler(JupyterHandler):
     def get(self):
         repo = self.get_argument("repo")
         branch = self.get_argument("branch", None)
-        urlpath = self.get_argument("urlpath", "lab")
+        urlpath = self.get_argument("urlpath", "lab/tree")
+        notebookpath = self.get_argument("notebookpath", None)
         overwrite = self.get_argument("overwrite", "1") == "1"
 
         params = {}
@@ -172,6 +228,7 @@ class LaunchHandler(JupyterHandler):
 
             write_env(params, self.serverapp.log)
             git_clone(repo, branch, self.serverapp.log)
+            install_requirements(self.serverapp.log)
             copy_target_into_work(self.serverapp.log)
 
         except subprocess.CalledProcessError as exc:

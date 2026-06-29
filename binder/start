@@ -3,12 +3,4 @@ set -eux
 
 mkdir -p "$HOME/workspace"
 
-# Hide/remove wrapper source from the visible file browser root.
-# rm -rf "$HOME/binder_launcher" \
-#        "$HOME/binder" \
-#        "$HOME/binder_launcher.json" \
-#        "$HOME/pyproject.toml" \
-#        "$HOME/README.md" \
-#        "$HOME"/*.egg-info
-
 exec "$@"
