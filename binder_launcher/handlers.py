@@ -9,14 +9,21 @@ import tornado.web
 from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.utils import url_path_join
 
-WORKSPACE_DIR_NAME = "workspace"
+# WORKSPACE_DIR_NAME = "workspace"
+WORKSPACE_DIR_NAME = ""
 HOME = Path.home()
 WORK = HOME / WORKSPACE_DIR_NAME
 TARGET = WORK / "target"
 ENV_FILE = WORK / ".env"
 KEEP = {".env", ".ipynb_checkpoints"}
-
 RESERVED_PARAMS = {"repo", "branch", "urlpath", "notebookpath", "targetpath", "overwrite"}
+WRAPPER_FILES = {
+    "binder_launcher",
+    "binder",
+    ".binder",
+    "pyproject.toml",
+    "README.md",
+}
 
 
 def shell_escape_env_value(value: str) -> str:
@@ -205,6 +212,30 @@ def copy_target_into_work(log):
         log.info("  %s", path.name)
 
 
+def clean_wrapper_files(root: Path, log):
+    log.info("Removing Binder launcher files from %s", root)
+
+    for item in root.iterdir():
+        if item.name in WRAPPER_FILES or item.name.endswith(".egg-info"):
+            log.info("Removing %s", item)
+
+            if item.is_dir():
+                shutil.rmtree(item)
+            else:
+                item.unlink()
+
+     # Remove all *.egg-info
+    for item in root.glob("*.egg-info"):
+        log.info("Removing %s", item)
+
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
+
+    log.info("Wrapper cleanup complete")
+
+
 class LaunchHandler(JupyterHandler):
     @tornado.web.authenticated
     def get(self):
@@ -230,6 +261,7 @@ class LaunchHandler(JupyterHandler):
             write_env(params, self.serverapp.log)
             git_clone(repo, branch, self.serverapp.log)
             install_requirements(self.serverapp.log)
+            clean_wrapper_files(HOME, self.serverapp.log)
             copy_target_into_work(self.serverapp.log)
 
         except subprocess.CalledProcessError as exc:
