@@ -12,11 +12,7 @@ cat > "${KERNEL_PYTHON_PREFIX}/etc/jupyter/jupyter_server_config.d/binder_launch
   "ServerApp": {
     "jpserver_extensions": {
       "binder_launcher": true
-    },
-    "root_dir": "/home/jovyan/workspace"
-  },
-  "ContentsManager": {
-    "allow_hidden": true
+    }
   }
 }
 EOF
@@ -25,14 +21,6 @@ mkdir -p /home/jovyan/workspace
 
 "${KERNEL_PYTHON_PREFIX}/bin/jupyter" server extension list
 
-# {
-#   "ServerApp": {
-#     "jpserver_extensions": {
-#       "binder_launcher": true
-#     }
-#   }
-# }
-# EOF
 
 
 # #!/usr/bin/env bash

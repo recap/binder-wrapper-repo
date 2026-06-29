@@ -263,7 +263,7 @@ class LaunchHandler(JupyterHandler):
             write_env(params, self.serverapp.log)
             git_clone(repo, branch, self.serverapp.log)
             install_requirements(self.serverapp.log)
-            # clean_wrapper_files(HOME, self.serverapp.log)
+            clean_wrapper_files(HOME, self.serverapp.log)
             copy_target_into_work(self.serverapp.log)
 
         except subprocess.CalledProcessError as exc:
@@ -280,8 +280,8 @@ class LaunchHandler(JupyterHandler):
             self.write({"status": "error", "message": str(exc)})
             return
 
-        # redirect_url = url_path_join(self.base_url, urlpath, WORKSPACE_DIR_NAME, notebookpath) if notebookpath else url_path_join(self.base_url, urlpath, WORKSPACE_DIR_NAME)
-        redirect_url = url_path_join(self.base_url, urlpath, notebookpath)
+        redirect_url = url_path_join(self.base_url, urlpath, WORKSPACE_DIR_NAME, notebookpath) if notebookpath else url_path_join(self.base_url, urlpath, WORKSPACE_DIR_NAME)
+        # redirect_url = url_path_join(self.base_url, urlpath, notebookpath)
         self.serverapp.log.info(f"Redirecting to {redirect_url}")
 
         self.redirect(redirect_url)
