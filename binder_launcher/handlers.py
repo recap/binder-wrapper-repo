@@ -32,16 +32,6 @@ def safe_remove_work_contents():
         else:
             item.unlink()
 
-
-# def write_env(params: dict[str, str]):
-#     lines = []
-#     for key, value in sorted(params.items()):
-#         env_key = "BINDER_PARAM_" + key.upper().replace("-", "_")
-#         if not env_key.replace("_", "").isalnum():
-#             continue
-#         lines.append(f"{env_key}={shell_escape_env_value(value)}")
-#     ENV_FILE.write_text("\n".join(lines) + "\n")
-
 def write_env(params: dict[str, str], log):
     log.info("Writing environment file: %s", ENV_FILE)
     log.info("Received %d parameters", len(params))
@@ -81,17 +71,6 @@ def write_env(params: dict[str, str], log):
         ENV_FILE.stat().st_size,
     )
 
-# def git_clone(repo: str, branch: str | None):
-#     if TARGET.exists():
-#         shutil.rmtree(TARGET)
-#
-#     cmd = ["git", "clone", "--depth", "1"]
-#     if branch:
-#         cmd += ["--branch", branch]
-#     cmd += [repo, str(TARGET)]
-#
-#     subprocess.run(cmd, check=True, text=True, capture_output=True)
-
 def git_clone(repo: str, branch: str | None, log):
     import shutil as _shutil
 
@@ -127,20 +106,6 @@ def git_clone(repo: str, branch: str | None, log):
         )
 
     log.info("clone target exists=%s contents=%s", TARGET.exists(), list(TARGET.iterdir()))
-
-
-# def copy_target_into_work():
-#     for item in TARGET.iterdir():
-#         if item.name == ".git":
-#             continue
-#         dest = WORK / item.name
-#         if dest.exists():
-#             if dest.is_dir():
-#                 shutil.rmtree(dest)
-#             else:
-#                 dest.unlink()
-#         shutil.move(str(item), str(dest))
-#     shutil.rmtree(TARGET)
 
 def copy_target_into_work(log):
     log.info("Copying target repository into work directory")
@@ -222,5 +187,8 @@ class LaunchHandler(JupyterHandler):
             self.set_status(500)
             self.write({"status": "error", "message": str(exc)})
             return
+
+        redirect_url = url_path_join(self.base_url, urlpath)
+        self.serverapp.log.info(f"Redirecting to {redirect_url}")
 
         self.redirect(url_path_join(self.base_url, urlpath))
