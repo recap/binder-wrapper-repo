@@ -16,6 +16,8 @@ TARGET = WORK / "target"
 ENV_FILE = WORK / ".env"
 KEEP = {".env", ".ipynb_checkpoints"}
 RESERVED_PARAMS = {"repo", "branch", "urlpath", "notebookpath", "targetpath", "overwrite"}
+# ENV_PREFIX = "BINDER_PARAM_"
+ENV_PREFIX = ""
 WRAPPER_FILES = {
     "binder_launcher",
     "binder",
@@ -47,7 +49,7 @@ def write_env(params: dict[str, str], log):
     lines = []
 
     for key, value in sorted(params.items()):
-        env_key = "BINDER_PARAM_" + key.upper().replace("-", "_")
+        env_key = ENV_PREFIX + key.upper().replace("-", "_")
 
         if not env_key.replace("_", "").isalnum():
             log.warning(
