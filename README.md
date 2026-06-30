@@ -76,96 +76,17 @@ This will:
 
 These parameters control the launcher itself.
 
-Parameter
-
-Required
-
-Default
-
-Description
-
-`repo`
-
-yes
-
-none
-
-Git repository URL to clone.
-
-`branch`
-
-no
-
-repository default
-
-Branch, tag, or commit to clone.
-
-`urlpath`
-
-no
-
-`lab/tree`
-
-Jupyter URL prefix used for redirect.
-
-`notebookpath`
-
-no
-
-none
-
-Notebook path relative to the target repository root.
-
-`targetpath`
-
-no
-
-unused
-
-Reserved for future use.
-
-`overwrite`
-
-no
-
-`1`
-
-If `1`, clears the workspace before launching.
-
-`cleanup`
-
-no
-
-`0`
-
-If `1`, removes wrapper files from `/home/jovyan`.
-
-`data`
-
-Optional URL-encoded JSON describing data files to download after the repository has been staged.
-
-Schema:
-
-[
-{
-"url": "https://example.org/data.csv",
-"path": "data/data.csv"
-}
-]
-
-Each object contains:
-
-Field Required Description
-url ✓ HTTP(S) URL of the file to download.
-path
-Destination path relative to the workspace. If omitted, the filename is inferred from the URL.
-
-All other query parameters are written to:
-
-```text
-/home/jovyan/workspace/.env
-
-```
+| Parameter                | Required | Default                   | Description                                                                                                             | Example                                                           |
+| ------------------------ | :------: | ------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `repo`                   |    ✓     | —                         | Git repository URL to clone.                                                                                            | `https://github.com/recap/DataLens`                               |
+| `branch`                 |          | Repository default branch | Git branch, tag, or commit to checkout.                                                                                 | `main`                                                            |
+| `urlpath`                |          | `lab/tree`                | Jupyter URL prefix used for the final redirect. Typical values: `lab/tree`, `lab`, `tree`.                              | `lab/tree`                                                        |
+| `notebookpath`           |          | —                         | Path to the notebook to open, relative to the repository root.                                                          | `notebooks/analysis.ipynb`                                        |
+| `targetpath`             |          | Workspace root            | Reserved for future use. Intended to specify a subdirectory within the workspace where the repository should be staged. | `examples/`                                                       |
+| `overwrite`              |          | `1`                       | Whether to clear the existing workspace before staging the repository. Values: `1` = overwrite, `0` = preserve.         | `1`                                                               |
+| `cleanup`                |          | `0`                       | Whether to remove the wrapper repository files after launching. Values: `1` = remove wrapper files, `0` = keep them.    | `1`                                                               |
+| `data`                   |          | —                         | URL-encoded JSON describing files to download into the workspace after staging the repository.                          | `[{"url":"https://example.org/data.csv","path":"data/data.csv"}]` |
+| _(all other parameters)_ |          | —                         | Written unchanged to `workspace/.env` and made available to the launched notebook.                                      | `CSV_URL=https://example.org/data.csv`                            |
 
 ---
 
