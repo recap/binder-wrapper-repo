@@ -11,10 +11,6 @@ from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.utils import url_path_join
 
 WORKSPACE_DIR_NAME = "workspace"
-# HOME = Path.home()
-# WORK = HOME / WORKSPACE_DIR_NAME
-# TARGET = WORK / "target"
-# ENV_FILE = WORK / ".env"
 KEEP = {".env", ".ipynb_checkpoints"}
 # ENV_PREFIX = "BINDER_PARAM_"
 ENV_PREFIX = ""
