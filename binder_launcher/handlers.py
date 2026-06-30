@@ -55,6 +55,9 @@ WRAPPER_FILES = {
 # cleanup:       Whether to remove the wrapper files after launching.
 #                Values: "1" (default), "0"
 #
+# run_postbuild: Whether to run the postBuild script after staging.
+#                Values: "1", "0" (default)
+#
 # data:          URL-encoded JSON describing data files to download after
 #                staging the repository.
 #                Schema:
@@ -77,6 +80,7 @@ RESERVED_PARAMS = {
     "overwrite",
     "cleanup",
     "data",
+    "run_postbuild",
 }
 
 def run_post_build(log):
@@ -421,6 +425,7 @@ class LaunchHandler(JupyterHandler):
         overwrite = self.get_argument("overwrite", "1") == "1"
         cleanup = self.get_argument("cleanup", "0") == "1"
         data_json = self.get_argument("data", None)
+        run_postbuild = self.get_argument("run_postbuild", "0") == "1"
 
         params = {}
         for key, values in self.request.query_arguments.items():
@@ -439,7 +444,8 @@ class LaunchHandler(JupyterHandler):
             write_env(params, self.serverapp.log)
             git_clone(repo, branch, self.serverapp.log)
             install_requirements(self.serverapp.log)
-            run_post_build(self.serverapp.log)
+            if run_postbuild:
+                run_post_build(self.serverapp.log)
             if cleanup:
                 clean_wrapper_files(HOME, self.serverapp.log)
             copy_target_into_work(self.serverapp.log)
