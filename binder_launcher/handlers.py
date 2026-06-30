@@ -3,8 +3,9 @@ import shlex
 import shutil
 import subprocess
 from pathlib import Path
-
-
+import json
+import urllib.request
+from urllib.parse import urlparse
 import tornado.web
 from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.utils import url_path_join
@@ -15,7 +16,7 @@ WORK = HOME / WORKSPACE_DIR_NAME
 TARGET = WORK / "target"
 ENV_FILE = WORK / ".env"
 KEEP = {".env", ".ipynb_checkpoints"}
-RESERVED_PARAMS = {"repo", "branch", "urlpath", "notebookpath", "targetpath", "overwrite"}
+RESERVED_PARAMS = {"repo", "branch", "urlpath", "notebookpath", "targetpath", "overwrite", "cleanup", "data"}
 # ENV_PREFIX = "BINDER_PARAM_"
 ENV_PREFIX = ""
 WRAPPER_FILES = {
@@ -27,6 +28,87 @@ WRAPPER_FILES = {
     "binder_launcher.json",
 }
 
+def is_safe_relative_path(path: str) -> bool:
+    p = Path(path)
+
+    if p.is_absolute():
+        return False
+
+    if ".." in p.parts:
+        return False
+
+    return True
+
+
+def filename_from_url(url: str) -> str:
+    parsed = urlparse(url)
+    name = Path(parsed.path).name
+    return name or "downloaded_file"
+
+
+def stage_data_files(data_json: str | None, log):
+    if not data_json:
+        log.info("No data staging requested")
+        return
+
+    log.info("Data staging requested")
+
+    try:
+        specs = json.loads(data_json)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid data JSON: {exc}") from exc
+
+    if isinstance(specs, dict):
+        specs = [specs]
+
+    if not isinstance(specs, list):
+        raise ValueError("data must be a JSON object or a JSON array of objects")
+
+    data_dir = WORK / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest = []
+
+    for i, spec in enumerate(specs):
+        if not isinstance(spec, dict):
+            raise ValueError(f"data[{i}] must be an object")
+
+        url = spec.get("url")
+        if not url:
+            raise ValueError(f"data[{i}] is missing required field 'url'")
+
+        parsed = urlparse(url)
+
+        if parsed.scheme not in {"https", "http"}:
+            raise ValueError(f"Unsupported URL scheme for {url!r}")
+
+        relative_path = spec.get("path") or filename_from_url(url)
+
+        if not is_safe_relative_path(relative_path):
+            raise ValueError(f"Unsafe data path: {relative_path!r}")
+
+        dest = WORK / relative_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+
+        log.info("Staging data file %s -> %s", url, dest)
+
+        with urllib.request.urlopen(url, timeout=60) as response:
+            content = response.read()
+
+        dest.write_bytes(content)
+
+        manifest.append({
+            "url": url,
+            "path": str(dest.relative_to(WORK)),
+            "size": dest.stat().st_size,
+        })
+
+        log.info("Staged %s (%d bytes)", dest, dest.stat().st_size)
+
+    manifest_path = WORK / "data_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+
+    log.info("Wrote data manifest: %s", manifest_path)
 
 def shell_escape_env_value(value: str) -> str:
     return shlex.quote(value)
@@ -246,6 +328,8 @@ class LaunchHandler(JupyterHandler):
         urlpath = self.get_argument("urlpath", "lab/tree")
         notebookpath = self.get_argument("notebookpath", None)
         overwrite = self.get_argument("overwrite", "1") == "1"
+        cleanup = self.get_argument("cleanup", "0") == "1"
+        data_json = self.get_argument("data", None)
 
         params = {}
         for key, values in self.request.query_arguments.items():
@@ -260,11 +344,14 @@ class LaunchHandler(JupyterHandler):
             if overwrite:
                 safe_remove_work_contents()
 
+
             write_env(params, self.serverapp.log)
             git_clone(repo, branch, self.serverapp.log)
             install_requirements(self.serverapp.log)
-            clean_wrapper_files(HOME, self.serverapp.log)
+            if cleanup:
+                clean_wrapper_files(HOME, self.serverapp.log)
             copy_target_into_work(self.serverapp.log)
+            stage_data_files(data_json, self.serverapp.log)
 
         except subprocess.CalledProcessError as exc:
             self.set_status(500)
