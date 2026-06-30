@@ -25,10 +25,11 @@ At runtime, you open the `/launch` route with query parameters. The launcher the
 2.  writes non-reserved URL parameters to `workspace/.env`;
 3.  clones the target repository into `workspace/target`;
 4.  installs dependencies if supported files are found;
-5.  optionally removes wrapper files from `/home/jovyan`;
-6.  moves the target repository contents into `workspace/`;
-7.  optionally downloads data files;
-8.  redirects to JupyterLab.
+5.  run `posBuild` if present in the target repository;
+6.  optionally removes wrapper files from `/home/jovyan`;
+7.  moves the target repository contents into `workspace/`;
+8.  optionally downloads data files;
+9.  redirects to JupyterLab.
 
 The final notebook content is placed under:
 
