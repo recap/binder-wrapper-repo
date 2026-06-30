@@ -58,7 +58,7 @@ Decoded, the inner launcher route is:
 ## Example
 
 ```text
-https://mybinder.org/v2/gh/recap/binder-launcher/main?urlpath=launch%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252Frecap%252FDataLens%26branch%3Dmain%26notebookpath%3DDataLens_EDA.ipynb%26CSV_URL%3Dhttps%253A%252F%252Fexample.org%252Fdata.csv
+https://mybinder.org/v2/gh/recap/binder-launcher/v0.1.1?urlpath=launch%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252Frecap%252FDataLens%26branch%3Dmain%26notebookpath%3DDataLens_EDA.ipynb%26CSV_URL%3Dhttps%253A%252F%252Fexample.org%252Fdata.csv
 
 ```
 
@@ -69,6 +69,8 @@ This will:
 - clone `https://github.com/recap/DataLens`;
 - write `CSV_URL=https://example.org/data.csv` to `.env`;
 - open `workspace/DataLens_EDA.ipynb`.
+
+Try it out: [![Launch Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/recap/binder-launcher/v0.1.1?urlpath=launch%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252Frecap%252FDataLens%26branch%3Dmain%26notebookpath%3DDataLens_EDA.ipynb%26CSV_URL%3Dhttps%253A%252F%252Fexample.org%252Fdata.csv)
 
 ---
 
