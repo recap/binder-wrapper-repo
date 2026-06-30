@@ -115,8 +115,8 @@ def stage_data_files(data_json: str | None, log):
     if not isinstance(specs, list):
         raise ValueError("data must be a JSON object or a JSON array of objects")
 
-    data_dir = WORK / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
+    # data_dir = WORK / "data"
+    # data_dir.mkdir(parents=True, exist_ok=True)
 
     manifest = []
 
