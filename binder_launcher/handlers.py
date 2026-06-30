@@ -11,10 +11,10 @@ from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.utils import url_path_join
 
 WORKSPACE_DIR_NAME = "workspace"
-HOME = Path.home()
-WORK = HOME / WORKSPACE_DIR_NAME
-TARGET = WORK / "target"
-ENV_FILE = WORK / ".env"
+# HOME = Path.home()
+# WORK = HOME / WORKSPACE_DIR_NAME
+# TARGET = WORK / "target"
+# ENV_FILE = WORK / ".env"
 KEEP = {".env", ".ipynb_checkpoints"}
 # ENV_PREFIX = "BINDER_PARAM_"
 ENV_PREFIX = ""
@@ -83,11 +83,21 @@ RESERVED_PARAMS = {
     "run_postbuild",
 }
 
-def run_post_build(log):
+
+def get_server_root(handler: JupyterHandler) -> Path:
+    root = handler.settings.get("server_root_dir")
+
+    if root is None:
+        root = handler.contents_manager.root_dir
+
+    return Path(os.path.expanduser(root)).resolve()
+
+
+def run_post_build(target: Path, log):
     candidates = [
-        TARGET / "binder" / "postBuild",
-        TARGET / ".binder" / "postBuild",
-        TARGET / "postBuild",
+        target / "binder" / "postBuild",
+        target / ".binder" / "postBuild",
+        target / "postBuild",
     ]
 
     for script in candidates:
@@ -100,7 +110,7 @@ def run_post_build(log):
 
         result = subprocess.run(
             ["/bin/bash", str(script)],
-            cwd=TARGET,
+            cwd=target,
             text=True,
             capture_output=True,
             env=os.environ.copy(),
@@ -136,7 +146,7 @@ def filename_from_url(url: str) -> str:
     return name or "downloaded_file"
 
 
-def stage_data_files(data_json: str | None, log):
+def stage_data_files(work: Path, data_json: str | None, log):
     if not data_json:
         log.info("No data staging requested")
         return
@@ -177,7 +187,7 @@ def stage_data_files(data_json: str | None, log):
         if not is_safe_relative_path(relative_path):
             raise ValueError(f"Unsafe data path: {relative_path!r}")
 
-        dest = WORK / relative_path
+        dest = work / relative_path
         dest.parent.mkdir(parents=True, exist_ok=True)
 
         log.info("Staging data file %s -> %s", url, dest)
@@ -189,13 +199,13 @@ def stage_data_files(data_json: str | None, log):
 
         manifest.append({
             "url": url,
-            "path": str(dest.relative_to(WORK)),
+            "path": str(dest.relative_to(work)),
             "size": dest.stat().st_size,
         })
 
         log.info("Staged %s (%d bytes)", dest, dest.stat().st_size)
 
-    manifest_path = WORK / "data_manifest.json"
+    manifest_path = work / "data_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
 
     log.info("Wrote data manifest: %s", manifest_path)
@@ -205,9 +215,9 @@ def shell_escape_env_value(value: str) -> str:
     return shlex.quote(value)
 
 
-def safe_remove_work_contents():
-    WORK.mkdir(exist_ok=True)
-    for item in WORK.iterdir():
+def safe_remove_work_contents(work: Path):
+    work.mkdir(exist_ok=True)
+    for item in work.iterdir():
         if item.name in KEEP:
             continue
         if item.is_dir():
@@ -216,8 +226,8 @@ def safe_remove_work_contents():
             item.unlink()
 
 
-def write_env(params: dict[str, str], log):
-    log.info("Writing environment file: %s", ENV_FILE)
+def write_env(env_file: Path, params: dict[str, str], log):
+    log.info("Writing environment file: %s", env_file)
     log.info("Received %d parameters", len(params))
 
     lines = []
@@ -247,16 +257,16 @@ def write_env(params: dict[str, str], log):
 
     log.debug("Writing .env contents:\n%s", contents)
 
-    ENV_FILE.write_text(contents)
+    env_file.write_text(contents)
 
     log.info(
         "Successfully wrote %s (%d bytes)",
-        ENV_FILE,
-        ENV_FILE.stat().st_size,
+        env_file,
+        env_file.stat().st_size,
     )
 
 
-def git_clone(repo: str, branch: str | None, log):
+def git_clone(target: Path, repo: str, branch: str | None, log):
     import shutil as _shutil
 
     git = _shutil.which("git")
@@ -266,13 +276,13 @@ def git_clone(repo: str, branch: str | None, log):
     if git is None:
         raise RuntimeError("git executable not found")
 
-    if TARGET.exists():
-        shutil.rmtree(TARGET)
+    if target.exists():
+        shutil.rmtree(target)
 
     cmd = [git, "clone", "--depth", "1"]
     if branch:
         cmd += ["--branch", branch]
-    cmd += [repo, str(TARGET)]
+    cmd += [repo, str(target)]
 
     log.info("running clone command: %s", " ".join(shlex.quote(c) for c in cmd))
 
@@ -290,22 +300,22 @@ def git_clone(repo: str, branch: str | None, log):
             stderr=result.stderr,
         )
 
-    log.info("clone target exists=%s contents=%s", TARGET.exists(), list(TARGET.iterdir()))
+    log.info("clone target exists=%s contents=%s", target.exists(), list(target.iterdir()))
 
 
-def install_requirements(log):
+def install_requirements(target: Path, log):
     pip = shutil.which("pip")
     if pip is None:
         raise RuntimeError("pip executable not found")
 
     candidates = [
-        TARGET / "binder" / "requirements.txt",
-        TARGET / ".binder" / "requirements.txt",
-        TARGET / "requirements.txt",
-        TARGET / "binder" / "environment.yml",
-        TARGET / ".binder" / "environment.yml",
-        TARGET / "environment.yml",
-        TARGET / "pyproject.toml",
+        target / "binder" / "requirements.txt",
+        target / ".binder" / "requirements.txt",
+        target / "requirements.txt",
+        target / "binder" / "environment.yml",
+        target / ".binder" / "environment.yml",
+        target / "environment.yml",
+        target / "pyproject.toml",
     ]
 
     for path in candidates:
@@ -318,7 +328,7 @@ def install_requirements(log):
             cmd = [pip, "install", "-r", str(path)]
 
         elif path.name == "pyproject.toml":
-            cmd = [pip, "install", str(TARGET)]
+            cmd = [pip, "install", str(target)]
 
         elif path.name == "environment.yml":
             # Don't try to recreate the conda environment at runtime.
@@ -349,15 +359,15 @@ def install_requirements(log):
     log.info("No supported dependency files found.")
 
 
-def copy_target_into_work(log):
+def copy_target_into_work(target: Path, work: Path, log):
     log.info("Copying target repository into work directory")
-    log.info("TARGET=%s", TARGET)
-    log.info("WORK=%s", WORK)
+    log.info("TARGET=%s", target)
+    log.info("WORK=%s", work)
 
-    if not TARGET.exists():
-        raise RuntimeError(f"Target directory does not exist: {TARGET}")
+    if not target.exists():
+        raise RuntimeError(f"Target directory does not exist: {target}")
 
-    items = list(TARGET.iterdir())
+    items = list(target.iterdir())
     log.info("Target contains %d items", len(items))
 
     for item in items:
@@ -367,7 +377,7 @@ def copy_target_into_work(log):
             log.info("Skipping .git directory")
             continue
 
-        dest = WORK / item.name
+        dest = work / item.name
 
         if dest.exists():
             log.info("Destination already exists: %s", dest)
@@ -382,12 +392,12 @@ def copy_target_into_work(log):
         log.info("Moving %s -> %s", item, dest)
         shutil.move(str(item), str(dest))
 
-    log.info("Removing temporary clone directory %s", TARGET)
-    shutil.rmtree(TARGET)
+    log.info("Removing temporary clone directory %s", target)
+    shutil.rmtree(target)
 
     log.info("Final work directory contents:")
 
-    for path in sorted(WORK.iterdir()):
+    for path in sorted(work.iterdir()):
         log.info("  %s", path.name)
 
 
@@ -426,6 +436,16 @@ class LaunchHandler(JupyterHandler):
         cleanup = self.get_argument("cleanup", "1") == "1"
         data_json = self.get_argument("data", None)
         run_postbuild = self.get_argument("run_postbuild", "0") == "1"
+        server_root = get_server_root(self)
+
+        work = server_root / WORKSPACE_DIR_NAME
+        target = work / "target"
+        env_file = work / ".env"
+
+        self.log.info("server_root=%s", server_root)
+        self.log.info("work=%s", work)
+        self.log.info("target=%s", target)
+
 
         params = {}
         for key, values in self.request.query_arguments.items():
@@ -441,15 +461,15 @@ class LaunchHandler(JupyterHandler):
                 safe_remove_work_contents()
 
 
-            write_env(params, self.serverapp.log)
-            git_clone(repo, branch, self.serverapp.log)
-            install_requirements(self.serverapp.log)
+            write_env(env_file, params, self.serverapp.log)
+            git_clone(target, repo, branch, self.serverapp.log)
+            install_requirements(target, self.serverapp.log)
             if run_postbuild:
-                run_post_build(self.serverapp.log)
+                run_post_build(target, self.serverapp.log)
             if cleanup:
-                clean_wrapper_files(HOME, self.serverapp.log)
-            copy_target_into_work(self.serverapp.log)
-            stage_data_files(data_json, self.serverapp.log)
+                clean_wrapper_files(server_root, self.serverapp.log)
+            copy_target_into_work(target, work, self.serverapp.log)
+            stage_data_files(work, data_json, self.serverapp.log)
 
         except subprocess.CalledProcessError as exc:
             self.set_status(500)
