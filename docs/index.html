@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Binder Launcher URL Builder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      label {
+        display: block;
+        margin-top: 1rem;
+        font-weight: 600;
+      }
+      input,
+      textarea {
+        width: 100%;
+        padding: 0.6rem;
+        font: inherit;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 1rem;
+        padding: 0.7rem 1rem;
+        font: inherit;
+        cursor: pointer;
+      }
+      pre {
+        background: #f5f5f5;
+        padding: 1rem;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Binder File Stager</h1>
+    <label>Binder service</label>
+    <select id="binderBase">
+      <option value="https://mybinder.org">mybinder.org</option>
+      <option value="https://replay.notebooks.egi.eu">
+        EGI Notebooks Replay
+      </option>
+      <option value="https://binder.ethz.ch">ETH Binder</option>
+      <option value-"https://notebooks.gesis.org/binder">GESIS Binder</option>
+    </select>
+
+    <!-- <label>Binder launcher repo</label> -->
+    <!-- <input id="launcherRepo" value="recap/binder-launcher" /> -->
+    <!---->
+    <!-- <label>Launcher version / branch / tag</label> -->
+    <!-- <input id="launcherRef" value="v0.1.1" /> -->
+
+    <label>Target Git repo URL</label>
+    <input id="targetRepo" placeholder="https://github.com/recap/DataLens" />
+
+    <div class="row">
+      <div>
+        <label>Target branch</label>
+        <input id="branch" value="main" />
+      </div>
+      <div>
+        <label>Notebook path</label>
+        <input id="notebookpath" placeholder="DataLens_EDA.ipynb" />
+      </div>
+    </div>
+
+    <label><strong>.env</strong> arameters, one per line: KEY=VALUE</label>
+    <textarea id="params" rows="5">
+CSV_URL=https://example.org/data.csv</textarea
+    >
+
+    <label>Stage data files (optional)</label>
+
+<div id="dataFiles"></div>
+
+
+<button type="button" onclick="addDataFile()">+ Add file</button>
+
+    <!-- <label>Data staging JSON optional</label> -->
+    <!-- <textarea -->
+    <!--   id="data" -->
+    <!--   rows="5" -->
+    <!--   placeholder='[{"url":"https://example.org/data.csv","path":"data/data.csv"}]' -->
+    <!-- ></textarea> -->
+
+    <br></br>
+  <details>
+  <summary>Advanced options</summary>
+
+  <label>Binder launcher repo</label>
+  <input id="launcherRepoAdvanced" value="recap/binder-launcher" />
+
+  <label>Launcher version / branch / tag</label>
+  <input id="launcherRefAdvanced" value="v0.1.1" />
+
+  <label>URL path</label>
+  <input id="urlpath" value="lab/tree" />
+
+  <label>
+  <label>
+    <input id="runPostbuild" type="checkbox" />
+    Run target repository postBuild
+  </label>
+    <input id="overwrite" type="checkbox" checked />
+    Overwrite existing workspace
+  </label>
+
+  <label>
+    <input id="cleanup" type="checkbox" checked />
+    Clean wrapper files after launch
+  </label>
+
+</details>
+
+    <button onclick="buildUrl()">Build URL</button>
+    <button onclick="copyUrl()">Copy URL</button>
+
+    <h2>Binder URL</h2>
+    <pre id="output"></pre>
+
+    <!-- <h2>Markdown badge</h2> -->
+    <!-- <pre id="badge"></pre> -->
+
+    <button onclick="launchBinder()">🚀 Launch Binder</button>
+
+    <script>
+    // function addDataFile(url = "", path = "") {
+    //     const container = document.getElementById("dataFiles");
+    //
+    //     const row = document.createElement("div");
+    //     row.className = "data-file-row";
+    //
+    //     row.innerHTML = `
+    //         <input
+    //             class="data-url"
+    //             placeholder="File URL"
+    //             value="${url}"
+    //         />
+    //
+    //         <input
+    //             class="data-path"
+    //             placeholder="Destination path (optional)"
+    //             value="${path}"
+    //         />
+    //
+    //         <button type="button" onclick="this.parentElement.remove()">✕</button>
+    //     `;
+    //
+    //     container.appendChild(row);
+    // }
+
+    function addDataFile(url = "", path = "") {
+        const container = document.getElementById("dataFiles");
+
+        const row = document.createElement("div");
+        row.className = "data-file-row";
+
+        row.innerHTML = `
+            <input
+                class="data-url"
+                placeholder="File URL e.g. https://example.org/data.csv"
+                value="${url}"
+            />
+            <br></br>
+
+            <input
+                class="data-path"
+                placeholder="Target file name and path e.g. data/data.csv"
+                value="${path}"
+            />
+
+            <button type="button" onclick="this.parentElement.remove()">✕</button>
+        `;
+
+        const urlInput = row.querySelector(".data-url");
+        const pathInput = row.querySelector(".data-path");
+
+        // Automatically suggest a filename while typing,
+        // but don't overwrite if the user has edited it.
+        urlInput.addEventListener("input", () => {
+            if (pathInput.dataset.userEdited === "true") {
+                return;
+            }
+
+            try {
+                const u = new URL(urlInput.value);
+
+                let filename = u.pathname.split("/").pop();
+
+                if (!filename)
+                    filename = "downloaded_file";
+
+                pathInput.value = filename;
+            } catch {
+                // Ignore invalid URLs while typing
+            }
+        });
+
+        pathInput.addEventListener("input", () => {
+            pathInput.dataset.userEdited = "true";
+        });
+
+        container.appendChild(row);
+    }
+
+    function buildDataJson() {
+        const rows = document.querySelectorAll(".data-file-row");
+
+        const data = [];
+
+        rows.forEach(row => {
+            const url = row.querySelector(".data-url").value.trim();
+            const path = row.querySelector(".data-path").value.trim();
+
+            if (!url) return;
+
+            const file = { url };
+
+            if (path)
+                file.path = path;
+
+            data.push(file);
+        });
+
+        return data.length ? JSON.stringify(data) : null;
+    }
+
+      function launchBinder() {
+          buildUrl();
+
+          const url = document.getElementById("output").textContent.trim();
+
+          if (!url) {
+              alert("Please build the Binder URL first.");
+              return;
+          }
+
+          window.open(url, "_blank", "noopener");
+      }
+
+      function buildUrl() {
+        // const launcherRepo = document
+        //   .getElementById("launcherRepo")
+        //   .value.trim();
+        // const launcherRef = document.getElementById("launcherRef").value.trim();
+        
+        const inner = new URLSearchParams();
+
+        const launcherRepo = document.getElementById("launcherRepoAdvanced").value.trim()
+          || document.getElementById("launcherRepo").value.trim();
+
+        const launcherRef = document.getElementById("launcherRefAdvanced").value.trim()
+          || document.getElementById("launcherRef").value.trim();
+
+        const urlpath = document.getElementById("urlpath").value.trim() || "lab/tree";
+        const overwrite = document.getElementById("overwrite").checked ? 1 : 0;
+        const cleanup = document.getElementById("cleanup").checked ? 1 : 0;
+        const runPostbuild = document.getElementById("runPostbuild").checked ? 1 : 0;
+
+        if (urlpath !== "lab/tree") {
+            console.log("Setting urlpath to", urlpath);
+            inner.set("urlpath", urlpath);
+        }
+
+        if (!overwrite) {
+            console.log("Setting overwrite to 0");
+            // Default is overwrite=1
+            inner.set("overwrite", "0");
+        }
+
+        if (!cleanup) {
+            console.log("Setting cleanup to 0");
+            inner.set("cleanup", "0");
+        }
+
+        if (runPostbuild) {
+            console.log("Setting run_postbuild to 1");
+            // Default is run_postbuild=0
+            inner.set("run_postbuild", "1");
+        }
+
+        const targetRepo = document.getElementById("targetRepo").value.trim();
+        const branch = document.getElementById("branch").value.trim();
+        const notebookpath = document
+          .getElementById("notebookpath")
+          .value.trim();
+        const paramsText = document.getElementById("params").value.trim();
+        // const dataText = document.getElementById("data").value.trim();
+
+        const dataJson = buildDataJson();
+
+        if (dataJson) {
+            inner.set("data", dataJson);
+        }
+
+        inner.set("repo", targetRepo);
+        if (branch) inner.set("branch", branch);
+        if (notebookpath) inner.set("notebookpath", notebookpath);
+
+        for (const line of paramsText.split("\n")) {
+          if (!line.trim()) continue;
+          const idx = line.indexOf("=");
+          if (idx === -1) continue;
+          const key = line.slice(0, idx).trim();
+          const value = line.slice(idx + 1).trim();
+          if (key) inner.set(key, value);
+        }
+
+        // if (dataText) {
+        //   try {
+        //     JSON.parse(dataText);
+        //     inner.set("data", dataText);
+        //   } catch {
+        //     alert("Data JSON is invalid");
+        //     return;
+        //   }
+        // }
+
+        const launchUrlpath = "launch?" + inner.toString();
+
+        const binderBase = document
+          .getElementById("binderBase")
+          .value.replace(/\/$/, "");
+
+        const binderUrl =
+          `${binderBase}/v2/gh/${launcherRepo}/${launcherRef}` +
+          `?urlpath=${encodeURIComponent(launchUrlpath)}`;
+
+        // const badge = `[![Launch Binder](https://mybinder.org/badge_logo.svg)](${binderUrl})`;
+        //
+        document.getElementById("output").textContent = binderUrl;
+        // document.getElementById("badge").textContent = badge;
+      }
+
+      async function copyUrl() {
+        const url = document.getElementById("output").textContent;
+        await navigator.clipboard.writeText(url);
+        alert("Copied Binder URL");
+      }
+
+      buildUrl();
+      addDataFile();
+    </script>
+  </body>
+</html>
