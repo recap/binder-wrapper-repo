@@ -328,10 +328,26 @@ def install_requirements(target: Path, log):
 
         elif path.name == "environment.yml":
             # Don't try to recreate the conda environment at runtime.
-            log.warning(
-                "Found environment.yml but runtime conda environment "
-                "creation is not supported. Skipping."
-            )
+            # log.warning(
+            #     "Found environment.yml but runtime conda environment "
+            #     "creation is not supported. Skipping."
+            # )
+            conda = shutil.which("conda")
+            if conda is None:
+                raise RuntimeError("conda executable not found")
+
+            log.info("Updating current conda environment from %s", path)
+
+            cmd = [
+                conda,
+                "env",
+                "update",
+                "--prefix",
+                os.environ.get("CONDA_PREFIX"),
+                "--file",
+                str(path),
+                "--prune",
+            ]
             return
 
         log.info("Running: %s", " ".join(cmd))
