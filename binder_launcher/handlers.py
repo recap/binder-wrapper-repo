@@ -365,7 +365,7 @@ def install_requirements(target: Path, log):
                 f"Dependency installation failed:\n{result.stderr}"
             )
 
-        return
+        # return
 
     log.info("No supported dependency files found.")
 
