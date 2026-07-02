@@ -348,7 +348,6 @@ def install_requirements(target: Path, log):
                 str(path),
                 "--prune",
             ]
-            return
 
         log.info("Running: %s", " ".join(cmd))
 
